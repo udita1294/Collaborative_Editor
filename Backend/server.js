@@ -13,17 +13,21 @@ const io = new Server(httpServer, {
   }
 });
 
+const ysocketio = new YSocketIO(io);
+// initialize documents
+ysocketio.initialize();
+
 app.get('/', (req, res) => {
   res.status(200).json({
-    message : 'Hello World',
-    success : true
+    message: 'Hello World',
+    success: true
   });
 });
 
 app.get('/health', (req, res) => {
   res.status(200).json({
-    message : 'ok',
-    success : true
+    message: 'ok',
+    success: true
   });
 });
 
