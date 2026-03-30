@@ -1,0 +1,6 @@
+FROM node:20-alpine
+
+COPY ./Backend .
+
+CMD ["node", "server.js"]
+
