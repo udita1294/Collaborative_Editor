@@ -14,16 +14,32 @@ function App() {
 
   const [users, setUsers] = useState([]);
 
-  // Yjs doc
+  const visibleUsers = useMemo(() => {
+    const seen = new Map();
+    users.forEach((user) => {
+      if (!user?.username) return;
+      const cleanName = user.username.trim();
+      const key = cleanName.toLowerCase();
+      if (!seen.has(key)) seen.set(key, cleanName);
+    });
+    return Array.from(seen.values());
+  }, [users]);
+
+  // Yjs
   const ydoc = useMemo(() => new Y.Doc(), []);
   const yText = useMemo(() => ydoc.getText("monaco"), [ydoc]);
 
-  // SINGLE provider instance 
+  // Provider 
   const provider = useMemo(() => {
-    return new SocketIOProvider("http://localhost:3000", "monaco",ydoc,{ autoConnect: true });
+    return new SocketIOProvider(
+      "http://localhost:3000",
+      "monaco",
+      ydoc,
+      { autoConnect: true }
+    );
   }, [ydoc]);
 
-  // Bind Monaco with Yjs + Awareness
+  // Bind editor
   const handleMount = (editor) => {
     editorRef.current = editor;
 
@@ -31,14 +47,13 @@ function App() {
       yText,
       editor.getModel(),
       new Set([editor]),
-      provider.awareness 
+      provider.awareness
     );
   };
 
-  // Join handler
+  // Join
   const handleJoin = (e) => {
     e.preventDefault();
-
     const name = e.target.username.value.trim();
     if (!name) return;
 
@@ -46,24 +61,23 @@ function App() {
     window.history.pushState({}, "", "?username=" + name);
   };
 
+
   useEffect(() => {
     if (!username) return;
 
-    // set current user
     provider.awareness.setLocalStateField("user", { username });
 
     const updateUsers = () => {
       const states = Array.from(provider.awareness.getStates().values());
 
       const activeUsers = states
-        .filter((state) => state.user && state.user.username)
-        .map((state) => state.user);
+        .filter((s) => s.user?.username)
+        .map((s) => s.user);
 
       setUsers(activeUsers);
     };
 
     updateUsers();
-
     provider.awareness.on("change", updateUsers);
 
     const handleBeforeUnload = () => {
@@ -80,19 +94,27 @@ function App() {
 
   if (!username) {
     return (
-      <main className="h-screen w-full bg-gray-950 flex items-center justify-center">
+      <main className="login-wrap">
+        <div className="bg-orb bg-orb-one" />
+        <div className="bg-orb bg-orb-two" />
         <form
           onSubmit={handleJoin}
-          className="flex flex-col gap-4 bg-neutral-800 p-6 rounded-lg"
+          className="login-card"
         >
+          <p className="eyebrow">Realtime Workspace</p>
+          <h1 className="login-title">Code Collaboration</h1>
+          <p className="login-subtitle">Join your shared room and start coding together.</p>
+
           <input
             type="text"
             name="username"
-            placeholder="Enter your username"
-            className="p-2 rounded-lg bg-gray-800 text-white"
+            autoComplete="off"
+            placeholder="Enter your name"
+            className="name-input"
           />
-          <button className="p-2 rounded-lg bg-amber-50 text-gray-950 font-bold">
-            Join
+
+          <button className="join-btn" type="submit">
+            Join Room
           </button>
         </form>
       </main>
@@ -100,33 +122,54 @@ function App() {
   }
 
   return (
-    <main className="h-screen w-full bg-gray-950 flex gap-4 p-4">
-      {/* USERS PANEL */}
-      <aside className="h-full w-1/4 bg-amber-50 rounded-lg">
-        <h2 className="text-2xl font-bold p-4 border-b border-gray-300">
-          Users
-        </h2>
-        <ul className="p-4">
-          {users.map((user, index) => (
-            <li
-              key={index}
-              className="p-2 bg-gray-800 text-white rounded mb-2"
-            >
-              {user.username}
-            </li>
-          ))}
-        </ul>
-      </aside>
+    <main className="app-shell">
+      <div className="bg-orb bg-orb-one" />
+      <div className="bg-orb bg-orb-two" />
+      <div className="app-grid">
+        <aside className="panel sidebar">
+          <div className="sidebar-header">
+            <h2>Active Users</h2>
+            <p>{visibleUsers.length} online</p>
+          </div>
 
-      {/* EDITOR */}
-      <section className="w-3/4 bg-neutral-800 rounded-lg overflow-hidden">
-        <Editor
-          height="100%"
-          defaultLanguage="javascript"
-          theme="vs-dark"
-          onMount={handleMount}
-        />
-      </section>
+          <ul className="user-list">
+            {visibleUsers.map((name) => (
+              <li key={name} className="user-item">
+                <div className="user-avatar">{name[0].toUpperCase()}</div>
+                <span className="user-name">{name}</span>
+                {name.toLowerCase() === username.toLowerCase() ? (
+                  <span className="you-tag">You</span>
+                ) : null}
+                <span className="status-dot" />
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        <section className="panel editor-panel">
+          <div className="editor-toolbar">
+            <h2>Collaborative Editor</h2>
+            <span className="session-pill">Signed in as {username}</span>
+          </div>
+
+          <div className="editor-stage">
+            <Editor
+              height="100%"
+              defaultLanguage="javascript"
+              theme="vs-dark"
+              onMount={handleMount}
+              options={{
+                minimap: { enabled: false },
+                smoothScrolling: true,
+                fontSize: 14,
+                lineHeight: 22,
+                padding: { top: 16 },
+                cursorBlinking: "smooth",
+              }}
+            />
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
